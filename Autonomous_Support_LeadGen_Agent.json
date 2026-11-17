@@ -1,0 +1,501 @@
+{
+  "name": "Autonomous_Support_LeadGen_Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-lead-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -176,
+        0
+      ],
+      "id": "ab62cc32-df5e-4de5-badf-1d283e8c3b40",
+      "name": "Webhook",
+      "webhookId": "b28bae29-5d46-48ea-9c66-44e474ac20f1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "\n\n\nSELECT email, plan, status\nFROM users\nWHERE email = $1;\n\n\n",
+        "options": {
+          "queryReplacement": "=\n\n{{ [$('Webhook').first().json.body.email] }}\n"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        240,
+        112
+      ],
+      "id": "d84a380e-4bff-4bdd-9b28-cb2f11e26af3",
+      "name": "Get_Customer_Tier",
+      "credentials": {
+        "postgres": {
+          "id": "FvOMOs4XjHBCsaPi",
+          "name": "Postgres account 26"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "efc00aa9-96c0-4b87-b288-354c206f063e",
+              "name": "email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "15d34e29-97e7-4a1a-a8fb-16c7291623ba",
+              "name": "transaction_id",
+              "value": "TXN1001",
+              "type": "string"
+            },
+            {
+              "id": "324ac7f6-06f9-4bd2-838f-5005fc8612ef",
+              "name": "amount",
+              "value": 2500,
+              "type": "number"
+            },
+            {
+              "id": "fa7aee7b-55dc-473b-936e-dc1ab5e3fed1",
+              "name": "payment_status",
+              "value": "Completed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        208,
+        -160
+      ],
+      "id": "c2fb21c3-29b1-4261-9672-dd35f6dd8e44",
+      "name": "Get_Recent_Transactions"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "email",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        640,
+        -16
+      ],
+      "id": "6226d8fb-89ac-498d-a576-cd078c265ab7",
+      "name": "Consolidate_Context"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ef57b61f-a33c-419f-9f3d-54c49b4f505d",
+              "name": "email",
+              "value": "={{ $('Webhook').first().json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "ebdec1d1-268a-4d7c-8580-3ff4263fcc54",
+              "name": "plan",
+              "value": "Free/Guest",
+              "type": "string"
+            },
+            {
+              "id": "cd6052b2-ff00-44c4-af1d-5d7a92b0dc55",
+              "name": "status",
+              "value": "Offline-Backup",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        224
+      ],
+      "id": "f6f27037-fe20-401a-8efd-ab8d5fda4d44",
+      "name": "Assign_Fallback_Tier"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=\nCustomer Email: {{ $json.email }}\nCustomer Plan: {{ $json.plan }}\nAccount Status: {{ $json.status }}\nTransaction ID: {{ $json.transaction_id }}\nPayment Status: {{ $json.payment_status }}\n\nCustomer Inquiry:\n{{ $('Webhook').first().json.body.message }}\n",
+        "options": {
+          "systemMessage": "\nYou are an autonomous Support and Lead Generation Agent.\n\nAnalyze customer inquiries using the provided customer metadata.\n\nRULES:\n\n1. If the message is a sales inquiry, use insert_lead_tool to save the customer's lead details.\n\n2. If the message is a technical support issue:\n   - For Premium or Enterprise customers, provide assistance using available customer information.\n   - If the issue cannot be resolved, use escalate_to_slack.\n   - For Free or Guest customers, guide them to public documentation.\n\n3. Never invent customer records or transaction details.\n\n4. Never expose credentials, passwords, or private customer information.\n\n5. Provide a concise, professional response.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        864,
+        -16
+      ],
+      "id": "680f4b07-ba21-4c69-811d-b0b565957fb2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "custom-qwen-agent",
+          "mode": "list",
+          "cachedResultName": "custom-qwen-agent"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        736,
+        192
+      ],
+      "id": "f328affa-948d-4a85-b5c1-600386c9b9f8",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "vargawTX6deq1kgr",
+          "name": "OpenAI account 20"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "\nUse this tool to insert a new sales lead into the CRM database when the customer expresses interest in purchasing a product or service.\n\nRequired information:\n- email\n- company\n- budget\n\nDo not create duplicate leads or invent missing customer details.\n",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "list",
+          "cachedResultName": "leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $fromAI('email', 'Customer email address', 'string') }}",
+            "company": "={{ $fromAI('company', 'Customer company name', 'string') }}",
+            "budget": "={{ $fromAI('budget', 'Customer budget', 'number') }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.7,
+      "position": [
+        1216,
+        240
+      ],
+      "id": "8b1c707b-f186-4c85-afa7-edf2b64e61f6",
+      "name": "insert_lead_tool",
+      "credentials": {
+        "postgres": {
+          "id": "FvOMOs4XjHBCsaPi",
+          "name": "Postgres account 26"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "\nUse this tool to send a Slack escalation notification when a Premium or Enterprise customer has an unresolved technical support issue.\n\nInclude the customer email and a concise issue summary.\nDo not use this tool for ordinary sales inquiries.\n",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0CCRSB9WAX",
+          "mode": "id"
+        },
+        "text": "= HIGH PRIORITY SUPPORT ESCALATION  Customer Email: {{ $fromAI('email', 'Customer email address', 'string') }}  Issue Summary: {{ $fromAI('summary', 'Describe the unresolved support issue', 'string') }}  Status: Requires human support review.",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slackTool",
+      "typeVersion": 2.7,
+      "position": [
+        1024,
+        256
+      ],
+      "id": "4ace0ad3-ea3e-40e0-84c1-6f104755150a",
+      "name": "Send a message in Slack",
+      "webhookId": "5461f3a9-deb4-40d7-9b88-9e2d31f558d5",
+      "credentials": {
+        "slackApi": {
+          "id": "wk96ba8pCWz2TXvb",
+          "name": "Slack account 10"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8d78a3c5-f9bd-477f-bf96-91e0c83c0cc1",
+              "name": "agent_response",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "7bc5332b-630f-411e-9208-d382740c4c13",
+              "name": "input_tokens",
+              "value": "={{ $json.tokenUsage?.promptTokens ?? $json.usage?.prompt_tokens ?? null }}",
+              "type": "number"
+            },
+            {
+              "id": "debfd401-dc83-4e5d-9847-b10388b16655",
+              "name": "output_tokens",
+              "value": "={{ $json.tokenUsage?.completionTokens ?? $json.usage?.completion_tokens ?? null }}",
+              "type": "number"
+            },
+            {
+              "id": "bc5bb6a2-7874-4ef3-90fe-9d55780fbdc3",
+              "name": "total_tokens",
+              "value": "={{ $json.tokenUsage?.totalTokens ?? $json.usage?.total_tokens ?? null }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1232,
+        -16
+      ],
+      "id": "2437c6bc-89d8-4af3-bca7-71c209d6b2e4",
+      "name": "Log_Token_Usage"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "=\n\n{{ JSON.stringify({\n  success: true,\n  response: $json.agent_response,\n  token_usage: {\n    input: $json.input_tokens,\n    output: $json.output_tokens,\n    total: $json.total_tokens\n  }\n}) }}\n",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1440,
+        -16
+      ],
+      "id": "7d938792-0836-4856-8d22-ddc31488edec",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get_Customer_Tier",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get_Recent_Transactions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get_Customer_Tier": {
+      "main": [
+        [
+          {
+            "node": "Consolidate_Context",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Assign_Fallback_Tier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get_Recent_Transactions": {
+      "main": [
+        [
+          {
+            "node": "Consolidate_Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign_Fallback_Tier": {
+      "main": [
+        [
+          {
+            "node": "Consolidate_Context",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Consolidate_Context": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "insert_lead_tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message in Slack": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Log_Token_Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log_Token_Usage": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c4640d4e-da79-4c72-aa1d-9d601a597aa0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a03c7678428ef19ededbf912f16f7d5798ec7b9ab4c17f2a2def6a9e791e7215"
+  },
+  "nodeGroups": [],
+  "id": "LNdkaDvpWKHEKhef",
+  "tags": []
+}
